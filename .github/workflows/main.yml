@@ -1,5 +1,5 @@
 
-name: Build XNU kernel
+name: Build XNU for xnuDroid
 
 on:
   workflow_dispatch:
@@ -20,28 +20,34 @@ jobs:
           ref: main
           path: xnulinux
 
-      - name: Verify source revision
+      - name: Verify upstream source
         run: |
           cd xnulinux
+          echo "===== SOURCE REVISION ====="
           git log -1 --format='%H %s'
-          grep -n 'DEVELOPMENT_ARM64_BCM2837' \
-            scripts/vm-xnu-rebuild.sh || true
+          echo "===== REBUILD SCRIPT ====="
+          sed -n '1,100p' scripts/vm-xnu-rebuild.sh
 
-      - name: Build XNU and Kernel Collection
+      - name: Build XNU
         run: |
           cd xnulinux
           bash scripts/vm-xnu-build.sh
 
       - name: Verify outputs
         run: |
-          ls -lh ~/w/dvm/out/k27/kernel-k27.macho
-          file ~/w/dvm/out/k27/kernel-k27.macho
-          ls -lh ~/w/dvm/out/k27/kc-k27.bin
+          set -eux
+          test -s "$HOME/w/dvm/out/k27/kernel-k27.macho"
+          file "$HOME/w/dvm/out/k27/kernel-k27.macho"
+          ls -lh "$HOME/w/dvm/out/k27/kernel-k27.macho"
 
-      - name: Upload kernel and collection
+          test -s "$HOME/w/dvm/out/k27/kc-k27.bin"
+          file "$HOME/w/dvm/out/k27/kc-k27.bin"
+          ls -lh "$HOME/w/dvm/out/k27/kc-k27.bin"
+
+      - name: Upload XNU artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: xnudroid-kernel
+          name: xnudroid-macos-kernel
           path: |
             /home/runner/w/dvm/out/k27/kernel-k27.macho
             /home/runner/w/dvm/out/k27/kc-k27.bin
