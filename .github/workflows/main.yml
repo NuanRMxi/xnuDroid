@@ -1,0 +1,66 @@
+
+name: Build XNU kernel.macho
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # ARM64 原生 Runner，公开仓库可免费使用
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout xnulinux
+        uses: actions/checkout@v4
+        with:
+          repository: AFK-surf/xnulinux
+          ref: main
+          path: xnulinux
+
+      - name: Check runner
+        run: |
+          uname -a
+          uname -m
+          free -h
+          df -h
+
+      - name: Reduce parallel jobs for 4-core runner
+        working-directory: xnulinux
+        run: |
+          sed -i \
+            -e 's/--jobs 12/--jobs 4/g' \
+            -e 's/JOBS=12/JOBS=4/g' \
+            scripts/vm-xnu-build.sh \
+            scripts/vm-xnu-rebuild.sh
+
+      - name: Build XNU
+        working-directory: xnulinux
+        run: |
+          bash scripts/vm-xnu-build.sh
+
+      - name: Verify kernel
+        run: |
+          test -s ~/w/dvm/out/k27/kernel-k27.macho
+          file ~/w/dvm/out/k27/kernel-k27.macho
+          ls -lh ~/w/dvm/out/k27/kernel-k27.macho
+
+      - name: Upload kernel.macho
+        uses: actions/upload-artifact@v4
+        with:
+          name: xnudroid-kernel-macho
+          path: ~/w/dvm/out/k27/kernel-k27.macho
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Upload Kernel Collection if available
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xnudroid-kernel-collection
+          path: ~/w/dvm/out/k27/kc-k27.bin
+          if-no-files-found: ignore
+          compression-level: 0
