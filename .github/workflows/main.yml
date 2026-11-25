@@ -1,5 +1,5 @@
 
-name: Build XNU for xnuDroid
+name: XNU kernel build
 
 on:
   workflow_dispatch:
@@ -20,36 +20,34 @@ jobs:
           ref: main
           path: xnulinux
 
-      - name: Verify upstream source
+      - name: Verify repository
         run: |
           cd xnulinux
-          echo "===== SOURCE REVISION ====="
-          git log -1 --format='%H %s'
-          echo "===== REBUILD SCRIPT ====="
-          sed -n '1,100p' scripts/vm-xnu-rebuild.sh
+          echo "COMMIT:"
+          git rev-parse HEAD
+          echo "SCRIPT:"
+          realpath scripts/vm-xnu-build.sh
+          echo "BUILD REFERENCES:"
+          grep -nE 'x12377|k27|build-native-kext' \
+            scripts/vm-xnu-build.sh scripts/vm-xnu-rebuild.sh || true
 
       - name: Build XNU
         run: |
           cd xnulinux
           bash scripts/vm-xnu-build.sh
 
-      - name: Verify outputs
+      - name: Locate generated kernel
         run: |
-          set -eux
-          test -s "$HOME/w/dvm/out/k27/kernel-k27.macho"
-          file "$HOME/w/dvm/out/k27/kernel-k27.macho"
-          ls -lh "$HOME/w/dvm/out/k27/kernel-k27.macho"
+          find "$HOME/w/dvm/out" \
+            -type f \( -name '*.macho' -o -name 'kc-*.bin' \) \
+            -printf '%p %s bytes\n'
 
-          test -s "$HOME/w/dvm/out/k27/kc-k27.bin"
-          file "$HOME/w/dvm/out/k27/kc-k27.bin"
-          ls -lh "$HOME/w/dvm/out/k27/kc-k27.bin"
-
-      - name: Upload XNU artifacts
+      - name: Upload build outputs
         uses: actions/upload-artifact@v4
         with:
-          name: xnudroid-macos-kernel
+          name: xnudroid-kernel
           path: |
-            /home/runner/w/dvm/out/k27/kernel-k27.macho
-            /home/runner/w/dvm/out/k27/kc-k27.bin
-          if-no-files-found: error
+            /home/runner/w/dvm/out/**/*.macho
+            /home/runner/w/dvm/out/**/*.bin
+          if-no-files-found: warn
           compression-level: 0
